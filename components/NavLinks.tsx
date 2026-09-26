@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Trophy, History } from 'lucide-react'
+import { LayoutDashboard, Trophy, History, MapPinned } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const LINKS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/map', label: 'Map', icon: MapPinned },
   { href: '/history', label: 'History', icon: History },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
 ]

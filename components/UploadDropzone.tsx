@@ -2,9 +2,10 @@
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react'
 import { toast } from 'sonner'
-import { UploadCloud, ImageIcon, Loader2 } from 'lucide-react'
+import { UploadCloud, ImageIcon, Loader2, MapPin, MapPinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ResultCard from './ResultCard'
+import { didGetExplorationBonus } from '@/lib/scoring'
 import type { UploadResult } from '@/types'
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp']
@@ -23,12 +24,30 @@ interface Props {
   onResult?: (result: UploadResult) => void
 }
 
+type LocationStatus = 'checking' | 'attached' | 'unavailable'
+
+/** Best-effort GPS grab — never blocks the upload longer than the timeout. */
+function getLocation(): Promise<GeolocationCoordinates | null> {
+  return new Promise((resolve) => {
+    if (!('geolocation' in navigator)) {
+      resolve(null)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos.coords),
+      () => resolve(null),
+      { timeout: 5000, maximumAge: 60_000 },
+    )
+  })
+}
+
 export default function UploadDropzone({ onResult }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<UploadResult | null>(null)
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('checking')
 
   function handleDragOver(e: DragEvent) {
     e.preventDefault()
@@ -52,6 +71,7 @@ export default function UploadDropzone({ onResult }: Props) {
 
   function processFile(file: File) {
     setResult(null)
+    setLocationStatus('checking')
 
     if (!ACCEPTED.includes(file.type)) {
       toast.error(STATUS_MESSAGES[400])
@@ -69,16 +89,38 @@ export default function UploadDropzone({ onResult }: Props) {
   async function uploadFile(file: File) {
     setLoading(true)
     try {
+      const coords = await getLocation()
+      setLocationStatus(coords ? 'attached' : 'unavailable')
+
       const form = new FormData()
       form.append('file', file)
+      if (coords) {
+        form.append('latitude', String(coords.latitude))
+        form.append('longitude', String(coords.longitude))
+      }
+
       const res = await fetch('/api/upload', { method: 'POST', body: form })
       const data = await res.json()
       if (!res.ok) {
         toast.error(data.error ?? STATUS_MESSAGES[res.status] ?? 'Upload failed.')
         return
       }
-      setResult(data as UploadResult)
-      onResult?.(data as UploadResult)
+      const uploadResult = data as UploadResult
+      setResult(uploadResult)
+      onResult?.(uploadResult)
+
+      if (
+        didGetExplorationBonus(
+          uploadResult.submission.pointsAwarded,
+          uploadResult.submission.severity,
+          uploadResult.submission.confidence,
+        )
+      ) {
+        toast.success('+75 New Territory Discovered!', {
+          icon: <MapPin size={16} />,
+          description: 'First report from this map cell — bonus points awarded.',
+        })
+      }
     } catch {
       toast.error('Network error — please try again.')
     } finally {
@@ -132,9 +174,28 @@ export default function UploadDropzone({ onResult }: Props) {
       </div>
 
       {loading && (
-        <p className="flex items-center justify-center gap-2 text-center text-indigo-400">
-          <Loader2 size={16} className="animate-spin" /> Analyzing hazard…
-        </p>
+        <div className="flex flex-col items-center gap-1.5">
+          <p className="flex items-center justify-center gap-2 text-center text-indigo-400">
+            <Loader2 size={16} className="animate-spin" /> Analyzing hazard…
+          </p>
+          <p className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
+            {locationStatus === 'checking' && (
+              <>
+                <Loader2 size={12} className="animate-spin" /> Checking location…
+              </>
+            )}
+            {locationStatus === 'attached' && (
+              <>
+                <MapPin size={12} className="text-emerald-400" /> Location attached
+              </>
+            )}
+            {locationStatus === 'unavailable' && (
+              <>
+                <MapPinOff size={12} /> No location — this photo won&rsquo;t reveal map tiles
+              </>
+            )}
+          </p>
+        </div>
       )}
 
       {result && <ResultCard result={result} />}

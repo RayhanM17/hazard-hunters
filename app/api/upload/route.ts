@@ -12,6 +12,13 @@ export const runtime = 'nodejs'
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_BYTES    = 10 * 1024 * 1024 // 10 MB
 
+function parseCoord(raw: FormDataEntryValue | null | undefined, min: number, max: number): number | null {
+  if (typeof raw !== 'string' || raw === '') return null
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < min || n > max) return null
+  return n
+}
+
 export async function POST(req: NextRequest) {
   const userId = await getUserId()
   if (!userId) {
@@ -30,6 +37,10 @@ export async function POST(req: NextRequest) {
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ error: 'File exceeds 10 MB' }, { status: 413 })
   }
+
+  // GPS is optional — nullable columns, no bonus/hex reveal without it (spec §1)
+  const latitude  = parseCoord(formData?.get('latitude'), -90, 90)
+  const longitude = parseCoord(formData?.get('longitude'), -180, 180)
 
   const ext      = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
   const fileName = `${randomUUID()}.${ext}`
@@ -50,8 +61,8 @@ export async function POST(req: NextRequest) {
     await putFile(tmpPath, 'dashcam_media')
 
     await query(
-      `INSERT INTO SUBMISSIONS (USER_ID, FILE_NAME, STATUS) VALUES (?, ?, 'PENDING')`,
-      [userId, fileName],
+      `INSERT INTO SUBMISSIONS (USER_ID, FILE_NAME, LATITUDE, LONGITUDE, STATUS) VALUES (?, ?, ?, ?, 'PENDING')`,
+      [userId, fileName, latitude, longitude],
     )
 
     await query(`CALL PROCESS_PENDING_SUBMISSIONS()`)
@@ -59,7 +70,8 @@ export async function POST(req: NextRequest) {
     // Fetch the result row for this file
     const subRows = await query<SubmissionRow>(
       `SELECT SUBMISSION_ID, FILE_NAME, STATUS, HAZARD_TYPE, CONFIDENCE, SEVERITY,
-              ROAD_TYPE, WEATHER, TIME_OF_DAY, DESCRIPTION, POINTS_AWARDED, UPLOADED_AT
+              ROAD_TYPE, WEATHER, TIME_OF_DAY, DESCRIPTION, POINTS_AWARDED, UPLOADED_AT,
+              LATITUDE, LONGITUDE, H3_CELL_RES8
        FROM SUBMISSIONS WHERE FILE_NAME = ? AND USER_ID = ?`,
       [fileName, userId],
     )
@@ -86,12 +98,19 @@ export async function POST(req: NextRequest) {
         pointsAwarded: sub?.POINTS_AWARDED ?? 0,
         fileName:      sub?.FILE_NAME,
         uploadedAt:    sub?.UPLOADED_AT,
+        latitude:      sub?.LATITUDE ?? null,
+        longitude:     sub?.LONGITUDE ?? null,
+        h3CellRes8:    sub?.H3_CELL_RES8 ?? null,
       },
       user: {
         points:             u.POINTS,
         medalTier:          u.MEDAL_TIER,
         nextTierThreshold:  u.NEXT_TIER_THRESHOLD,
         progressPercentage: u.PROGRESS_PERCENTAGE,
+        cellsExplored:      u.CELLS_EXPLORED,
+        zonesExplored:      u.ZONES_EXPLORED,
+        explorationStreak:  u.EXPLORATION_STREAK,
+        explorerTitle:      u.EXPLORER_TITLE,
         tierChanged:        tierBefore !== null && tierBefore !== u.MEDAL_TIER,
       },
     })

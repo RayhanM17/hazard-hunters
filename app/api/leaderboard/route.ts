@@ -21,6 +21,10 @@ export async function GET() {
       medalTier:          r.MEDAL_TIER,
       nextTierThreshold:  r.NEXT_TIER_THRESHOLD,
       progressPercentage: r.PROGRESS_PERCENTAGE,
+      cellsExplored:      r.CELLS_EXPLORED,
+      zonesExplored:      r.ZONES_EXPLORED,
+      explorationStreak:  r.EXPLORATION_STREAK,
+      explorerTitle:      r.EXPLORER_TITLE,
     }))
 
     return NextResponse.json(entries)

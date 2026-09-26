@@ -7,6 +7,7 @@ import ProgressBar from './ProgressBar'
 import UploadDropzone from './UploadDropzone'
 import PointCounter from './PointCounter'
 import TierUpCelebration from './TierUpCelebration'
+import ExplorerProfileCard from './ExplorerProfileCard'
 import type { User, UploadResult } from '@/types'
 
 interface Props {
@@ -25,6 +26,10 @@ export default function DashboardClient({ initialUser }: Props) {
       medalTier: result.user.medalTier,
       nextTierThreshold: result.user.nextTierThreshold,
       progressPercentage: result.user.progressPercentage,
+      cellsExplored: result.user.cellsExplored,
+      zonesExplored: result.user.zonesExplored,
+      explorationStreak: result.user.explorationStreak,
+      explorerTitle: result.user.explorerTitle,
     })
     if (result.user.tierChanged) {
       setCelebrationTier(result.user.medalTier)
@@ -50,6 +55,8 @@ export default function DashboardClient({ initialUser }: Props) {
         nextThreshold={user.nextTierThreshold}
         tier={user.medalTier}
       />
+
+      <ExplorerProfileCard user={user} />
 
       <UploadDropzone onResult={handleResult} />
 

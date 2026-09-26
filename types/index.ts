@@ -31,7 +31,17 @@ export type Weather = 'CLEAR' | 'RAINY' | 'SNOWY' | 'FOGGY' | 'OVERCAST' | 'NIGH
 
 export type TimeOfDay = 'DAWN' | 'DAYTIME' | 'DUSK' | 'NIGHT' | 'UNKNOWN'
 
-export type SubmissionStatus = 'PENDING' | 'PROCESSED'
+export type SubmissionStatus = 'PENDING' | 'PROCESSED' | 'FAILED'
+
+export type CellDangerLevel = 'GREEN' | 'YELLOW' | 'ORANGE' | 'RED'
+
+export type ExplorerTitle =
+  | 'Stationary'
+  | 'Rookie Explorer'
+  | 'Wanderer'
+  | 'Ranger'
+  | 'Voyager'
+  | 'Cartographer'
 
 export interface User {
   userId: string
@@ -40,6 +50,13 @@ export interface User {
   medalTier: MedalTier
   nextTierThreshold: number
   progressPercentage: number
+  cellsExplored: number
+  zonesExplored: number
+  explorationStreak: number
+  explorerTitle: ExplorerTitle
+  /** Only populated where fetched from EXPLORER_LEADERBOARD (e.g. /api/me). */
+  explorerRank?: number
+  streakStatus?: string | null
 }
 
 export interface Submission {
@@ -55,6 +72,9 @@ export interface Submission {
   pointsAwarded: number
   fileName?: string
   uploadedAt?: string
+  latitude: number | null
+  longitude: number | null
+  h3CellRes8: string | null
 }
 
 /** A submission joined with its owner's username, for the history feed. */
@@ -71,7 +91,7 @@ export interface LeaderboardEntry extends User {
   rank: number
 }
 
-/** Raw row shape returned from LEADERBOARD_VIEW */
+/** Raw row shape returned from LEADERBOARD_VIEW (post fog-of-war upgrade) */
 export interface LeaderboardRow {
   USER_ID: string
   USERNAME: string
@@ -79,6 +99,12 @@ export interface LeaderboardRow {
   MEDAL_TIER: MedalTier
   NEXT_TIER_THRESHOLD: number
   PROGRESS_PERCENTAGE: number
+  CELLS_EXPLORED: number
+  ZONES_EXPLORED: number
+  EXPLORATION_STREAK: number
+  TOTAL_SUBMISSIONS: number
+  HAZARDS_FOUND: number
+  EXPLORER_TITLE: ExplorerTitle
 }
 
 /** Raw row shape returned from SUBMISSIONS (joined with USERS for USERNAME) */
@@ -96,4 +122,133 @@ export interface SubmissionRow {
   STATUS: SubmissionStatus
   UPLOADED_AT: string
   USERNAME?: string
+  LATITUDE: number | null
+  LONGITUDE: number | null
+  H3_CELL_RES8: string | null
+}
+
+/** Raw row shape returned from EXPLORER_LEADERBOARD */
+export interface ExplorerRow {
+  USER_ID: string
+  USERNAME: string
+  POINTS: number
+  CELLS_EXPLORED: number
+  ZONES_EXPLORED: number
+  EXPLORATION_STREAK: number
+  EXPLORER_RANK: number
+  EXPLORER_TITLE: ExplorerTitle
+  STREAK_STATUS: string | null
+  LAST_SUBMISSION_DATE: string | null
+}
+
+export interface ExplorerEntry {
+  userId: string
+  username: string
+  points: number
+  cellsExplored: number
+  zonesExplored: number
+  explorationStreak: number
+  explorerRank: number
+  explorerTitle: ExplorerTitle
+  streakStatus: string | null
+}
+
+/** Raw row shape returned from EXPLORATION_MAP (per-user revealed hex tiles) */
+export interface ExplorationHexRow {
+  HEX_ID: string
+  HEX_GEOJSON: string
+  CELL_DANGER_LEVEL: CellDangerLevel
+  SUBMISSIONS_IN_CELL: number
+  HAZARDS_IN_CELL: number
+  MAX_SEVERITY: number
+  HAZARD_TYPES_FOUND: string | null
+  FIRST_EXPLORED: string
+}
+
+export interface ExplorationHex {
+  hexId: string
+  hexGeoJson: string
+  cellDangerLevel: CellDangerLevel
+  submissionsInCell: number
+  hazardsInCell: number
+  maxSeverity: number
+  hazardTypesFound: string | null
+  firstExplored: string
+}
+
+/** Raw row shape returned from HAZARD_HEATMAP (global hazard density) */
+export interface HeatmapHexRow {
+  HEX_ID: string
+  HEX_GEOJSON: string
+  CENTER_GEOJSON: string
+  TOTAL_HAZARDS: number
+  AVG_SEVERITY: number
+  UNIQUE_REPORTERS: number
+  MAX_SEVERITY: number
+}
+
+export interface HeatmapHex {
+  hexId: string
+  hexGeoJson: string
+  centerGeoJson: string
+  totalHazards: number
+  avgSeverity: number
+  uniqueReporters: number
+  maxSeverity: number
+}
+
+/** Raw row shape returned from ZONE_LEADERBOARD */
+export interface ZoneRow {
+  ZONE_ID: string
+  ZONE_GEOJSON: string
+  CENTER_GEOJSON: string
+  ACTIVE_SCOUTS: number
+  CELLS_MAPPED: number
+  HAZARDS_REPORTED: number
+  ZONE_RANK: number
+}
+
+export interface Zone {
+  zoneId: string
+  zoneGeoJson: string
+  centerGeoJson: string
+  activeScouts: number
+  cellsMapped: number
+  hazardsReported: number
+  zoneRank: number
+}
+
+/** Raw row shape returned from SUBMISSION_PINS */
+export interface SubmissionPinRow {
+  SUBMISSION_ID: string
+  LATITUDE: number
+  LONGITUDE: number
+  HAZARD_TYPE: HazardType
+  SEVERITY: Severity
+  CONFIDENCE: Confidence
+  DESCRIPTION: string | null
+  ROAD_TYPE: RoadType
+  WEATHER: Weather
+  TIME_OF_DAY: TimeOfDay
+  POINTS_AWARDED: number
+  UPLOADED_AT: string
+  H3_CELL_RES8: string
+  FILE_NAME: string
+}
+
+export interface SubmissionPin {
+  submissionId: string
+  latitude: number
+  longitude: number
+  hazardType: HazardType
+  severity: Severity
+  confidence: Confidence
+  description: string | null
+  roadType: RoadType
+  weather: Weather
+  timeOfDay: TimeOfDay
+  pointsAwarded: number
+  uploadedAt: string
+  h3CellRes8: string
+  fileName: string
 }

@@ -33,15 +33,22 @@ async function getConnection(): Promise<snowflake.Connection> {
   return connection
 }
 
+/**
+ * snowflake-sdk's own `Bind` type is `string | number` only, but the driver accepts `null` at
+ * runtime for nullable columns (e.g. optional GPS coords) — widen here rather than at every
+ * call site that needs a nullable bind.
+ */
+export type QueryBind = snowflake.Bind | null
+
 export async function query<T = Record<string, unknown>>(
   sqlText: string,
-  binds: snowflake.Bind[] = [],
+  binds: QueryBind[] = [],
 ): Promise<T[]> {
   const conn = await getConnection()
   return new Promise((resolve, reject) => {
     conn.execute({
       sqlText,
-      binds,
+      binds: binds as snowflake.Bind[],
       complete: (err, _stmt, rows) => (err ? reject(err) : resolve((rows ?? []) as T[])),
     })
   })

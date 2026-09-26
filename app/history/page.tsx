@@ -21,6 +21,9 @@ async function getSubmissions(userId: string): Promise<SubmissionRecord[]> {
          s.POINTS_AWARDED,
          s.STATUS,
          s.UPLOADED_AT,
+         s.LATITUDE,
+         s.LONGITUDE,
+         s.H3_CELL_RES8,
          u.USERNAME
      FROM SUBMISSIONS s
      JOIN USERS u ON s.USER_ID = u.USER_ID
@@ -43,6 +46,9 @@ async function getSubmissions(userId: string): Promise<SubmissionRecord[]> {
     pointsAwarded: r.POINTS_AWARDED,
     fileName:      r.FILE_NAME,
     uploadedAt:    r.UPLOADED_AT,
+    latitude:      r.LATITUDE,
+    longitude:     r.LONGITUDE,
+    h3CellRes8:    r.H3_CELL_RES8,
     username:      r.USERNAME ?? '',
   }))
 }

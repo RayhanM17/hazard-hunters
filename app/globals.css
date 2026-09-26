@@ -5,3 +5,40 @@
 body {
   background-color: theme('colors.slate.950');
 }
+
+/* Dark-theme overrides for Leaflet's default light tooltip/popup/control chrome. */
+.leaflet-container {
+  background: theme('colors.slate.950');
+  font-family: inherit;
+}
+.leaflet-tooltip,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: theme('colors.slate.900');
+  color: theme('colors.slate.100');
+  border: 1px solid theme('colors.slate.700');
+  box-shadow: none;
+}
+.leaflet-popup-content {
+  margin: 0.75rem 1rem;
+}
+.leaflet-control-zoom a {
+  background: theme('colors.slate.900');
+  color: theme('colors.slate.100');
+  border-color: theme('colors.slate.700') !important;
+}
+.leaflet-control-attribution {
+  background: rgba(2, 6, 23, 0.7);
+  color: theme('colors.slate.400');
+}
+.leaflet-control-attribution a {
+  color: theme('colors.slate.300');
+}
+
+/*
+ * Free OSM raster tiles only ship a light theme — fake dark mode by inverting the tile pane.
+ * Popups/tooltips/markers live outside .leaflet-tile-pane so they're unaffected.
+ */
+.dark-tiles .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+}

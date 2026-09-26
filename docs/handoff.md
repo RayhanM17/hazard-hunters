@@ -68,13 +68,31 @@
 - ✅ Fixed a layout crowding issue in `ResultCard`'s points column (user-reported) — the "how?" breakdown tooltip and `MedalBadge` were stacked with only `mt-1` between three lines; the tooltip trigger is now a small `Info` icon inline next to the points total, medal badge below with normal `gap-2` spacing
 - ✅ `npx tsc --noEmit` clean after every change above
 
+### Completed (fog-of-war frontend integration)
+- ✅ Backend upgraded independently again (Snowflake side, audited + deployed): `SUBMISSIONS` gained `LATITUDE`, `LONGITUDE`, `H3_CELL_RES8`, `H3_CELL_RES6`; `USERS` gained `CELLS_EXPLORED`, `ZONES_EXPLORED`, `EXPLORATION_STREAK`, `LAST_SUBMISSION_DATE`; 5 new views (`EXPLORATION_MAP`, `HAZARD_HEATMAP`, `ZONE_LEADERBOARD`, `EXPLORER_LEADERBOARD`, `SUBMISSION_PINS`); `LEADERBOARD_VIEW` extended with exploration fields + `EXPLORER_TITLE`; `PROCESS_PENDING_SUBMISSIONS()` now computes H3 cells and awards a +75 exploration bonus per new cell, via a `SUBMISSIONS_STREAM` + 1-min `PROCESS_SUBMISSIONS_TASK`. Frontend-only scope this round, by explicit user choice — see Pending.
+- ✅ `types/index.ts` — added `CellDangerLevel`, `ExplorerTitle`; lat/lng/`h3CellRes8` on `Submission`; exploration fields on `User`; raw+mapped types for all 5 new views
+- ✅ `lib/explorer.ts` (new) — Explorer Title tier metadata (icon/color/threshold), mirrors `lib/medals.ts`'s `TIERS` pattern. `lib/geo.ts` (new) — `CELL_DANGER_LEVEL` color map, severity→color gradient for the heatmap, GeoJSON parse/escape helpers
+- ✅ `lib/scoring.ts` — added `didGetExplorationBonus()`, the spec's client-side bonus-detection formula
+- ✅ `components/UploadDropzone.tsx` — captures GPS via `navigator.geolocation` on file select (5s timeout, non-blocking, silently omitted if denied/unavailable/timed out); shows a location-attached/unavailable status line; fires a "+75 New Territory Discovered!" toast when `didGetExplorationBonus()` is true
+- ✅ `app/api/upload/route.ts` — accepts + range-validates `latitude`/`longitude` from `FormData`, does the spec's 4-column `INSERT`, returns `h3CellRes8` + exploration stats. Kept the existing synchronous `CALL PROCESS_PENDING_SUBMISSIONS()` right after insert (same procedure the scheduled task calls) instead of switching to insert-and-poll, for instant demo feedback
+- ✅ `lib/snowflake.ts` — `query()`'s bind type widened to allow `null` (`snowflake-sdk`'s own `Bind` type is `string | number` only, but the driver accepts `null` at runtime for nullable columns like GPS coords)
+- ✅ New API routes: `app/api/map/mine` (`EXPLORATION_MAP` + `SUBMISSION_PINS` for the current user), `app/api/map/heatmap` (`HAZARD_HEATMAP`, `revalidate = 30`), `app/api/zones` (`ZONE_LEADERBOARD`, `revalidate = 30`). `app/api/me` and `app/page.tsx`'s `getUser()` extended to also query `EXPLORER_LEADERBOARD` for rank/streak status
+- ✅ New `/map` page (`app/map/page.tsx` + `components/ExplorationMap.tsx`) — Leaflet + `react-leaflet`, 3 toggleable modes (My Territory / Community Heatmap / Zone Battles), fog overlay + hex `GeoJSON` layers colored by `CELL_DANGER_LEVEL`, submission pins with report-card popups. Full-bleed layout breaking out of `layout.tsx`'s `max-w-4xl` via the `left-1/2 -translate-x-1/2 w-screen` trick
+- ✅ Fixed: CARTO's free anonymous `dark_all` tile endpoint now requires an API key (was serving "API KEY REQUIRED" watermark tiles, user-reported via screenshot) — switched to plain OpenStreetMap raster tiles + a CSS `filter: invert(...)` on `.leaflet-tile-pane` (`app/globals.css`) to fake dark mode, still zero-config/no-key
+- ✅ Fixed: map wasn't zooming to the user's location (user-reported) — `MapContainer`'s `center`/`zoom` props only apply on the initial mount (a Leaflet/react-leaflet quirk), so updating React state after geolocation resolved did nothing. Added a `RecenterOnLocate` helper (`useMap()` + `map.setView()` in an effect) and reprioritized centering: the user's most recent submission's coordinates first, live GPS as fallback, continental-US default last
+- ✅ `components/ExplorerProfileCard.tsx` (new) — title badge, cells/zones explored, streak status, rank; wired into `DashboardClient` below the medal progress bar
+- ✅ `components/LeaderboardTabs.tsx` (new) — Points vs Explorer tab toggle on `/leaderboard`, both sorts read from the one already-fetched `LEADERBOARD_VIEW` query (no extra request); `LeaderboardRow.tsx` got a `mode` prop to switch its badge/stat display. `NavLinks.tsx` got a "Map" entry
+- ✅ `npx tsc --noEmit` clean after every change above
+
 ### Pending
 - ⏳ Live-verify `tierChanged: true` actually fires on a real tier crossing, **and** watch the new `TierUpCelebration` overlay/confetti play for real — not yet exercised in a browser against a live tier boundary (`claude_test_user` 300 pts, `RayhanTester` 200 pts, both still Scout, need 500)
-- ⏳ Mobile layout (~375px width) not visually checked in a real browser, including the new `/history` page
+- ⏳ Mobile layout (~375px width) not visually checked in a real browser for `/history`, `/map`, or `ExplorerProfileCard`
 - ⏳ Duplicate upload prevention (`FILE_HASH` dedupe, `409` response) from `PLAN.md` §6 — still not implemented; current `SUBMISSIONS` table has no `FILE_HASH` column
-- ⏳ `snowflake/02_tables.sql` and `snowflake/06_procedures.sql` are still the pre-v2 versions (4-type hazard, flat 100 pts) — stale versus the live DB and versus `docs/FRONTEND_MODERNIZATION_V2.md` §5; need to be synced so the repo doesn't lie about what's deployed
+- ⏳ `snowflake/02_tables.sql`, `04_views.sql`, `06_procedures.sql` are now stale against **two** deployed upgrades (v2 AI classification, then fog-of-war) — left out of scope both times by explicit user choice (most recently: frontend-only for fog-of-war), not forgotten
 - ⏳ Leaderboard doesn't show per-user submission count / avg severity — deliberately deferred (see `docs/FRONTEND_MODERNIZATION_V2.md` scope decisions)
-- ⏳ `npm run build` not re-run since the v2 changes (only `tsc --noEmit`) — user is testing the dev server directly instead
+- ⏳ `npm run build` not re-run since the fog-of-war changes (only `tsc --noEmit` + manual `/map` check in-browser)
+- ⏳ "+75 New Territory Discovered!" toast not yet live-verified firing on a real new-cell submission
+- ⏳ Zone Battles map mode not live-verified against real multi-user zone data (may render sparse/empty depending on how many users have geotagged submissions so far)
 
 ### Known, accepted (not bugs)
 - Each Next.js route/page opens its own Snowflake connection (module-level singleton only dedupes repeat calls within the same route, not across routes — Next.js bundles each route separately). Already called out in `PLAN.md` §14 as an accepted risk for the MVP.
@@ -83,6 +101,7 @@
 - None
 
 ### Next Steps
-1. Sync `snowflake/02_tables.sql` / `06_procedures.sql` (and this handoff's stale bullets) to match the live v2 schema
-2. Live-verify tier-up detection and the `TierUpCelebration` overlay (see Pending above)
-3. Spot-check the redesigned UI (including `/history`) at mobile width (~375px) in a real browser
+1. Live-verify the exploration bonus toast, Zone Battles data, and tier-up detection/`TierUpCelebration` (see Pending above)
+2. Spot-check the redesigned UI (including `/map` and `/history`) at mobile width (~375px) in a real browser
+3. Run `npm run build` to confirm a clean production build with the new `leaflet`/`react-leaflet` dependency
+4. If/when SQL sync is prioritized: `snowflake/02_tables.sql` / `04_views.sql` / `06_procedures.sql` need reconstructing against both the v2 AI upgrade and fog-of-war upgrade, not just the latter
