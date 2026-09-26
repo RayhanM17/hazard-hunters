@@ -35,7 +35,7 @@ async function getConnection(): Promise<snowflake.Connection> {
 
 export async function query<T = Record<string, unknown>>(
   sqlText: string,
-  binds: unknown[] = [],
+  binds: snowflake.Bind[] = [],
 ): Promise<T[]> {
   const conn = await getConnection()
   return new Promise((resolve, reject) => {

@@ -7,7 +7,12 @@ LANGUAGE SQL
 AS
 $$
 BEGIN
-    -- Classify each PENDING submission using Snowflake Cortex AI_COMPLETE
+    -- Snapshot exactly which rows are PENDING right now, so classification
+    -- and points only ever apply to this batch (not every PROCESSED row ever).
+    CREATE OR REPLACE TEMPORARY TABLE _PENDING_BATCH AS
+    SELECT SUBMISSION_ID, USER_ID FROM SUBMISSIONS WHERE STATUS = 'PENDING';
+
+    -- Classify each submission in the batch using Snowflake Cortex AI_COMPLETE
     UPDATE SUBMISSIONS
     SET
         HAZARD_TYPE = UPPER(TRIM(
@@ -20,19 +25,20 @@ BEGIN
             )
         )),
         STATUS = 'PROCESSED'
-    WHERE STATUS = 'PENDING';
+    WHERE SUBMISSION_ID IN (SELECT SUBMISSION_ID FROM _PENDING_BATCH);
 
-    -- Award 100 points per processed submission
+    -- Award 100 points per submission newly processed in this batch only
     MERGE INTO USERS u
     USING (
         SELECT USER_ID, COUNT(*) * 100 AS EARNED_POINTS
-        FROM SUBMISSIONS
-        WHERE STATUS = 'PROCESSED'
+        FROM _PENDING_BATCH
         GROUP BY USER_ID
     ) s
     ON u.USER_ID = s.USER_ID
     WHEN MATCHED THEN
         UPDATE SET u.POINTS = u.POINTS + s.EARNED_POINTS;
+
+    DROP TABLE IF EXISTS _PENDING_BATCH;
 
     RETURN 'Complete';
 END;

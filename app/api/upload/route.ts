@@ -39,6 +39,13 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer())
     await writeFile(tmpPath, buffer)
 
+    // Capture tier before processing so we can detect a tier-up after
+    const beforeRows = await query<LeaderboardRow>(
+      `SELECT * FROM LEADERBOARD_VIEW WHERE USER_ID = ?`,
+      [userId],
+    )
+    const tierBefore = beforeRows[0]?.MEDAL_TIER ?? null
+
     // PUT to internal stage, insert PENDING row, run procedure
     await putFile(tmpPath, 'dashcam_media')
 
@@ -75,7 +82,7 @@ export async function POST(req: NextRequest) {
         medalTier:          u.MEDAL_TIER,
         nextTierThreshold:  u.NEXT_TIER_THRESHOLD,
         progressPercentage: u.PROGRESS_PERCENTAGE,
-        tierChanged:        false, // TODO: compare points before/after for tier-up animation
+        tierChanged:        tierBefore !== null && tierBefore !== u.MEDAL_TIER,
       },
     })
   } catch (err) {

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const COOKIE_NAME  = 'hh_user_id'
-const PUBLIC_PATHS = ['/login', '/api/login']
+const PUBLIC_PATHS = ['/login', '/api/login', '/api/health']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

@@ -37,13 +37,27 @@
 - ✅ `npm run dev` confirmed working — `/login` returns 200
 - ✅ GitHub repository created
 
+### Completed (this session)
+- ✅ Verified live Snowflake connectivity — added `app/api/health/route.ts` (`SELECT CURRENT_VERSION()`), added to `middleware.ts` public paths
+- ✅ Tested full flow end-to-end against real `DASHROUTE_DB.MVP_SCHEMA`: login (MERGE) → me → upload (PUT stage → INSERT → CALL → Cortex `AI_COMPLETE` classify) → leaderboard
+- ✅ Fixed critical bug in `snowflake/06_procedures.sql` — `PROCESS_PENDING_SUBMISSIONS` was recalculating points from *every* historical `PROCESSED` submission on every call and re-adding the total, inflating every user's `POINTS` on every unrelated upload. Now snapshots only the batch of rows that were `PENDING` at call-start (`_PENDING_BATCH` temp table) and scores just that batch. Redeployed to Snowflake and confirmed via live test — a new user's upload no longer changes other users' points.
+- ✅ Manually corrected `HackathonHero_01`'s points (was inflated to 550 by the bug; reset to 150 = 50 seed + 100 for their 1 real submission) — run by the user directly in Snowsight
+- ✅ Wired up tier-change detection in `app/api/upload/route.ts` — fetches `MEDAL_TIER` from `LEADERBOARD_VIEW` before processing, compares to the post-processing tier, sets `tierChanged` accordingly (previously hardcoded `false`)
+- ✅ Fixed a pre-existing TS type error in `lib/snowflake.ts` — `query()`'s `binds` param was typed `unknown[]`, didn't satisfy `snowflake-sdk`'s `Binds` type; now typed `snowflake.Bind[]`. `npx tsc --noEmit` is clean.
+
 ### Pending
-- ⏳ Tier-up animation — `tierChanged` is hardcoded `false` in `app/api/upload/route.ts` (compare points before/after CALL to detect)
+- ⏳ Live-verify `tierChanged: true` actually fires on a real tier crossing — re-tested after the bug fix, points are clean (`POINTS = PROCESSED_COUNT × 100` for every user) but no user has crossed a tier boundary yet (`claude_test_user` 300 pts, `RayhanTester` 200 pts, both still Scout, need 500). Push either past 500 and check the upload response body (Network tab — no UI surfaces it yet) to confirm `tierChanged: true` fires.
+- ⏳ Duplicate upload prevention (`FILE_HASH` dedupe, `409` response) from `PLAN.md` §6 — not implemented; current `SUBMISSIONS` table (`snowflake/02_tables.sql`) has no `FILE_HASH` column
+- ⏳ No confidence threshold or per-hazard-type point values — current procedure awards a flat 100 pts for any processed submission, including `NONE` (no hazard). `PLAN.md`'s `HAZARD_POINTS` table / confidence gating was never implemented; current schema (`HazardType = 'POTHOLE'|'FADED_LINE'|'CONSTRUCTION'|'NONE'`) is simpler than the original 8-type/confidence spec in `PLAN.md` §6–8. Flag to the team before the demo: uploading anything (even a non-road photo) currently earns points.
+
+### Known, accepted (not bugs)
+- Each Next.js route/page opens its own Snowflake connection (module-level singleton only dedupes repeat calls within the same route, not across routes — Next.js bundles each route separately). Already called out in `PLAN.md` §14 as an accepted risk for the MVP.
 
 ### Blockers
 - None
 
 ### Next Steps
-1. Implement page/component UI (skeletons are in place — fill in real layouts and styles)
-2. Wire up tier-change detection in `app/api/upload/route.ts`
-3. Polish: loading states, error toasts, mobile layout
+1. Live-verify tier-up detection (see Pending above)
+2. Implement page/component UI (skeletons are in place — fill in real layouts and styles)
+3. Decide: keep flat 100-pt scoring or implement `PLAN.md`'s confidence-gated `HAZARD_POINTS` table before the demo
+4. Polish: loading states, error toasts, mobile layout
