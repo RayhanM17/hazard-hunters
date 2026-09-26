@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { COOKIE_NAME } from '@/lib/auth'
 
+const COOKIE_NAME  = 'hh_user_id'
 const PUBLIC_PATHS = ['/login', '/api/login']
 
 export function middleware(request: NextRequest) {
