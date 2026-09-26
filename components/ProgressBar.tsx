@@ -1,4 +1,9 @@
+'use client'
+
+import { motion } from 'framer-motion'
+import { Crown } from 'lucide-react'
 import { getTier } from '@/lib/medals'
+import { Progress } from '@/components/ui/progress'
 import type { MedalTier } from '@/types'
 
 interface Props {
@@ -8,25 +13,33 @@ interface Props {
 }
 
 export default function ProgressBar({ percentage, nextThreshold, tier }: Props) {
-  const meta    = getTier(tier)
-  const isMax   = tier === 'Apex Driver'
+  const meta = getTier(tier)
+  const isMax = tier === 'Apex Driver'
   const clamped = Math.min(100, Math.max(0, percentage))
 
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-sm text-gray-400">
-        <span>{tier}</span>
-        {isMax
-          ? <span>Max tier reached 👑</span>
-          : <span>{nextThreshold.toLocaleString()} pts to next tier</span>}
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-sm text-slate-400">
+        <span className="font-medium text-slate-200">{tier}</span>
+        {isMax ? (
+          <span className="flex items-center gap-1 font-medium text-amber-400">
+            <Crown size={14} /> Max tier reached
+          </span>
+        ) : (
+          <span className="tabular-nums">{nextThreshold.toLocaleString()} pts to next tier</span>
+        )}
       </div>
-      <div className="h-3 rounded-full bg-gray-800 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${clamped}%`, backgroundColor: meta?.color ?? '#64748B' }}
+
+      <Progress value={clamped} className="relative">
+        <motion.div
+          className={`h-full rounded-full ${meta.gradient} ${meta.glow ?? ''}`}
+          initial={false}
+          animate={{ width: `${clamped}%` }}
+          transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
         />
-      </div>
-      <p className="text-xs text-gray-500 text-right">{clamped.toFixed(1)}%</p>
+      </Progress>
+
+      <p className="text-right text-xs tabular-nums text-slate-500">{clamped.toFixed(1)}%</p>
     </div>
   )
 }

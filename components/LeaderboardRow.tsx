@@ -1,4 +1,6 @@
+import { Trophy, Medal, Award } from 'lucide-react'
 import type { LeaderboardEntry } from '@/types'
+import { cn } from '@/lib/utils'
 import MedalBadge from './MedalBadge'
 
 interface Props {
@@ -8,37 +10,37 @@ interface Props {
 }
 
 const PODIUM_STYLES: Record<number, string> = {
-  1: 'bg-gradient-to-r from-yellow-300 to-amber-500 text-gray-900',
-  2: 'bg-gradient-to-r from-slate-200 to-slate-400 text-gray-900',
-  3: 'bg-gradient-to-r from-orange-300 to-amber-700 text-gray-900',
+  1: 'bg-gradient-to-r from-yellow-300 to-amber-500 text-slate-950',
+  2: 'bg-gradient-to-r from-slate-200 to-slate-400 text-slate-950',
+  3: 'bg-gradient-to-r from-orange-300 to-amber-600 text-slate-950',
 }
 
-const RANK_MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
+const RANK_ICONS: Record<number, typeof Trophy> = { 1: Trophy, 2: Medal, 3: Award }
 
 export default function LeaderboardRow({ entry, isCurrentUser, podium }: Props) {
   const podiumStyle = podium ? PODIUM_STYLES[entry.rank] ?? '' : ''
-  const highlightStyle = isCurrentUser && !podium ? 'ring-1 ring-sky-500' : ''
+  const RankIcon = podium ? RANK_ICONS[entry.rank] : undefined
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg px-4 py-3 ${podiumStyle || 'bg-gray-900'} ${highlightStyle}`}
+      className={cn(
+        'flex items-center gap-3 rounded-xl px-4 py-3',
+        podiumStyle || 'border border-slate-800 bg-slate-900',
+        isCurrentUser && !podium && 'ring-2 ring-indigo-500',
+      )}
     >
-      {/* Rank */}
-      <span className="w-8 text-center font-bold text-sm shrink-0">
-        {RANK_MEDALS[entry.rank] ?? `#${entry.rank}`}
+      <span className="flex w-8 shrink-0 items-center justify-center font-display text-sm font-bold">
+        {RankIcon ? <RankIcon size={18} /> : `#${entry.rank}`}
       </span>
 
-      {/* Username */}
-      <span className="flex-1 font-medium truncate">
+      <span className="flex-1 truncate font-medium">
         {entry.username}
-        {isCurrentUser && <span className="ml-2 text-xs text-sky-400">(you)</span>}
+        {isCurrentUser && <span className="ml-2 text-xs text-indigo-400">(you)</span>}
       </span>
 
-      {/* Medal badge */}
       <MedalBadge tier={entry.medalTier} size="sm" />
 
-      {/* Points */}
-      <span className="text-sm font-semibold tabular-nums shrink-0">
+      <span className="shrink-0 text-sm font-semibold tabular-nums">
         {entry.points.toLocaleString()}
       </span>
     </div>
