@@ -55,11 +55,26 @@
 - ✅ Fixed contrast, round 2 (user-reported — Pathfinder badge on the leaderboard was still unreadable, "grayish blue with black text"): the real problem was *any* small text sitting directly on a two-stop gradient loses contrast wherever the gradient dips dark (Pathfinder's `cyan-600` stop, the bronze podium's old `amber-700` stop). `MedalBadge` is now a **tonal badge** — solid `bg-slate-800` chip, tier's solid accent color (`lib/medals.ts` `color` field, re-tuned per tier) for border/icon/text — instead of text-on-gradient. `LeaderboardRow`'s bronze podium gradient stop swapped `amber-700` → `amber-600` for the same reason. `TierUpCelebration`'s full-screen gradient + `textOn` light/dark toggle is unchanged (large celebratory text, lower AA bar, not what was reported).
 - ✅ `npx tsc --noEmit` and `npm run build` both clean after every change above
 
+### Completed (backend AI upgrade v2 + frontend modernization)
+- ✅ Backend upgraded independently (Snowflake side): `SUBMISSIONS` gained `CONFIDENCE`, `SEVERITY`, `ROAD_TYPE`, `WEATHER`, `TIME_OF_DAY`, `DESCRIPTION`, `POINTS_AWARDED`; `HAZARD_TYPE` expanded 4 → 14 categories; `PROCESS_PENDING_SUBMISSIONS()` now scores by severity band × confidence multiplier instead of a flat 100 pts. Full spec: `docs/FRONTEND_MODERNIZATION_V2.md`.
+- ✅ `types/index.ts` — `HazardType` expanded to all 14 categories; added `Confidence`, `Severity`, `RoadType`, `Weather`, `TimeOfDay`, `SubmissionRecord`, `SubmissionRow`; `Submission`/`UploadResult` carry the full AI payload
+- ✅ `lib/hazards.ts` (new) — icon/color per hazard type, severity color scale, confidence badge variants (single source of truth, same pattern as `lib/medals.ts`)
+- ✅ `lib/scoring.ts` (new) — client-side mirror of the backend scoring formula, used only for the points-breakdown tooltip (server's `POINTS_AWARDED` stays authoritative)
+- ✅ `app/api/upload/route.ts` — now selects and returns all 7 new `SUBMISSIONS` columns instead of just `hazardType`
+- ✅ `app/api/submissions/route.ts` (new) — auth-gated GET, powers the history feed
+- ✅ New components: `HazardBadge`, `ConfidenceBadge`, `SeverityBar`, `RoadContextRow`, `PointsBreakdown`
+- ✅ `ResultCard.tsx` — rewritten to show hazard badge, severity bar, confidence badge, AI description, road/weather/time chips, and the real `pointsAwarded` (was a hardcoded 4-type map + flat "+100")
+- ✅ `app/history/page.tsx` + `components/SubmissionHistoryClient.tsx` (new) — submission history list with filters by hazard type, severity, confidence, road type, weather; `NavLinks.tsx` got a "History" entry
+- ✅ Fixed a layout crowding issue in `ResultCard`'s points column (user-reported) — the "how?" breakdown tooltip and `MedalBadge` were stacked with only `mt-1` between three lines; the tooltip trigger is now a small `Info` icon inline next to the points total, medal badge below with normal `gap-2` spacing
+- ✅ `npx tsc --noEmit` clean after every change above
+
 ### Pending
 - ⏳ Live-verify `tierChanged: true` actually fires on a real tier crossing, **and** watch the new `TierUpCelebration` overlay/confetti play for real — not yet exercised in a browser against a live tier boundary (`claude_test_user` 300 pts, `RayhanTester` 200 pts, both still Scout, need 500)
-- ⏳ Mobile layout (~375px width) not visually checked in a real browser after the redesign — the single-column layout should hold up, but this wasn't confirmed with eyes on screen
-- ⏳ Duplicate upload prevention (`FILE_HASH` dedupe, `409` response) from `PLAN.md` §6 — not implemented; current `SUBMISSIONS` table (`snowflake/02_tables.sql`) has no `FILE_HASH` column
-- ⏳ No confidence threshold or per-hazard-type point values — current procedure awards a flat 100 pts for any processed submission, including `NONE` (no hazard). `PLAN.md`'s `HAZARD_POINTS` table / confidence gating was never implemented; current schema (`HazardType = 'POTHOLE'|'FADED_LINE'|'CONSTRUCTION'|'NONE'`) is simpler than the original 8-type/confidence spec in `PLAN.md` §6–8. Flag to the team before the demo: uploading anything (even a non-road photo) currently earns points.
+- ⏳ Mobile layout (~375px width) not visually checked in a real browser, including the new `/history` page
+- ⏳ Duplicate upload prevention (`FILE_HASH` dedupe, `409` response) from `PLAN.md` §6 — still not implemented; current `SUBMISSIONS` table has no `FILE_HASH` column
+- ⏳ `snowflake/02_tables.sql` and `snowflake/06_procedures.sql` are still the pre-v2 versions (4-type hazard, flat 100 pts) — stale versus the live DB and versus `docs/FRONTEND_MODERNIZATION_V2.md` §5; need to be synced so the repo doesn't lie about what's deployed
+- ⏳ Leaderboard doesn't show per-user submission count / avg severity — deliberately deferred (see `docs/FRONTEND_MODERNIZATION_V2.md` scope decisions)
+- ⏳ `npm run build` not re-run since the v2 changes (only `tsc --noEmit`) — user is testing the dev server directly instead
 
 ### Known, accepted (not bugs)
 - Each Next.js route/page opens its own Snowflake connection (module-level singleton only dedupes repeat calls within the same route, not across routes — Next.js bundles each route separately). Already called out in `PLAN.md` §14 as an accepted risk for the MVP.
@@ -68,6 +83,6 @@
 - None
 
 ### Next Steps
-1. Live-verify tier-up detection and the `TierUpCelebration` overlay (see Pending above)
-2. Spot-check the redesigned UI at mobile width (~375px) in a real browser
-3. Decide: keep flat 100-pt scoring or implement `PLAN.md`'s confidence-gated `HAZARD_POINTS` table before the demo
+1. Sync `snowflake/02_tables.sql` / `06_procedures.sql` (and this handoff's stale bullets) to match the live v2 schema
+2. Live-verify tier-up detection and the `TierUpCelebration` overlay (see Pending above)
+3. Spot-check the redesigned UI (including `/history`) at mobile width (~375px) in a real browser

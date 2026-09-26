@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto'
 import { writeFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import path from 'path'
-import type { LeaderboardRow } from '@/types'
+import type { LeaderboardRow, SubmissionRow } from '@/types'
 
 export const runtime = 'nodejs'
 
@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
     await query(`CALL PROCESS_PENDING_SUBMISSIONS()`)
 
     // Fetch the result row for this file
-    const subRows = await query<{ SUBMISSION_ID: string; STATUS: string; HAZARD_TYPE: string }>(
-      `SELECT SUBMISSION_ID, STATUS, HAZARD_TYPE
+    const subRows = await query<SubmissionRow>(
+      `SELECT SUBMISSION_ID, FILE_NAME, STATUS, HAZARD_TYPE, CONFIDENCE, SEVERITY,
+              ROAD_TYPE, WEATHER, TIME_OF_DAY, DESCRIPTION, POINTS_AWARDED, UPLOADED_AT
        FROM SUBMISSIONS WHERE FILE_NAME = ? AND USER_ID = ?`,
       [fileName, userId],
     )
@@ -73,9 +74,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       submission: {
-        id:          sub?.SUBMISSION_ID ?? null,
-        status:      sub?.STATUS ?? 'PROCESSED',
-        hazardType:  sub?.HAZARD_TYPE ?? null,
+        id:            sub?.SUBMISSION_ID ?? null,
+        status:        sub?.STATUS ?? 'PROCESSED',
+        hazardType:    sub?.HAZARD_TYPE ?? null,
+        confidence:    sub?.CONFIDENCE ?? null,
+        severity:      sub?.SEVERITY ?? null,
+        roadType:      sub?.ROAD_TYPE ?? null,
+        weather:       sub?.WEATHER ?? null,
+        timeOfDay:     sub?.TIME_OF_DAY ?? null,
+        description:   sub?.DESCRIPTION ?? null,
+        pointsAwarded: sub?.POINTS_AWARDED ?? 0,
+        fileName:      sub?.FILE_NAME,
+        uploadedAt:    sub?.UPLOADED_AT,
       },
       user: {
         points:             u.POINTS,
