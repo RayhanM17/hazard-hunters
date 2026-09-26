@@ -1,0 +1,3 @@
+-- Not needed for this implementation.
+-- AI_COMPLETE() uses Snowflake Cortex (built-in) — no external network rules or secrets required.
+-- Ensure the warehouse role has USAGE on the Cortex feature if access control is enabled in your org.
