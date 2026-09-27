@@ -168,7 +168,7 @@ export default function ExplorationMap() {
                 const p = feature.properties as ExplorationHex
                 layer.bindTooltip(
                   `<div class="text-xs"><strong>${escapeHtml(p.hexId)}</strong><br/>` +
-                    `${p.submissionsInCell} submission${p.submissionsInCell === 1 ? '' : 's'} · ${p.hazardsInCell} hazard${p.hazardsInCell === 1 ? '' : 's'}<br/>` +
+                    `${p.totalObservations} observation${p.totalObservations === 1 ? '' : 's'} · ${p.hazardsInCell} hazard${p.hazardsInCell === 1 ? '' : 's'}<br/>` +
                     `${p.hazardTypesFound ? escapeHtml(p.hazardTypesFound) : 'No hazards found'}</div>`,
                   { sticky: true },
                 )

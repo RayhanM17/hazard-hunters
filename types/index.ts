@@ -158,7 +158,7 @@ export interface ExplorationHexRow {
   HEX_ID: string
   HEX_GEOJSON: string
   CELL_DANGER_LEVEL: CellDangerLevel
-  SUBMISSIONS_IN_CELL: number
+  TOTAL_OBSERVATIONS: number
   HAZARDS_IN_CELL: number
   MAX_SEVERITY: number
   HAZARD_TYPES_FOUND: string | null
@@ -169,7 +169,7 @@ export interface ExplorationHex {
   hexId: string
   hexGeoJson: string
   cellDangerLevel: CellDangerLevel
-  submissionsInCell: number
+  totalObservations: number
   hazardsInCell: number
   maxSeverity: number
   hazardTypesFound: string | null
@@ -234,6 +234,102 @@ export interface SubmissionPinRow {
   UPLOADED_AT: string
   H3_CELL_RES8: string
   FILE_NAME: string
+}
+
+/** A single GPS reading parsed client-side from an SRT or GPX sidecar file. */
+export interface Waypoint {
+  sequenceNum: number
+  latitude: number
+  longitude: number
+  speedMph: number | null
+  heading: number | null
+  capturedAt: string | null
+  /** Seconds from video start — used to match keyframes to the nearest waypoint. */
+  timestampSeconds: number
+}
+
+/** A keyframe extracted client-side from the video, ready to upload. */
+export interface Keyframe {
+  timestampSeconds: number
+  blob: Blob
+  fileName: string
+  latitude: number | null
+  longitude: number | null
+}
+
+export type RouteStatus = 'PENDING' | 'PROCESSED' | 'FAILED'
+
+/** Raw row shape returned from ROUTE_SUMMARY. */
+export interface RouteSummaryRow {
+  ROUTE_ID: string
+  USER_ID: string
+  USERNAME: string
+  VIDEO_FILE_NAME: string
+  START_LAT: number | null
+  START_LNG: number | null
+  END_LAT: number | null
+  END_LNG: number | null
+  DURATION_SECONDS: number | null
+  DISTANCE_METERS: number | null
+  TOTAL_WAYPOINTS: number
+  TOTAL_KEYFRAMES: number
+  CELLS_REVEALED: number
+  STATUS: RouteStatus
+  UPLOADED_AT: string
+  PROCESSED_AT: string | null
+  KEYFRAMES_PROCESSED: number
+  HAZARDS_DETECTED: number
+  MAX_SEVERITY: number | null
+  HAZARD_TYPES_FOUND: string | null
+  KEYFRAME_POINTS: number
+}
+
+export interface RouteSummary {
+  routeId: string
+  username: string
+  videoFileName: string
+  startLat: number | null
+  startLng: number | null
+  endLat: number | null
+  endLng: number | null
+  durationSeconds: number | null
+  distanceMeters: number | null
+  totalWaypoints: number
+  totalKeyframes: number
+  cellsRevealed: number
+  status: RouteStatus
+  uploadedAt: string
+  processedAt: string | null
+  keyframesProcessed: number
+  hazardsDetected: number
+  maxSeverity: number | null
+  hazardTypesFound: string | null
+  keyframePoints: number
+}
+
+/** COUNT_IF breakdown of SUBMISSIONS.STATUS for a route's keyframes, used for polling. */
+export interface RouteProgress {
+  done: number
+  pending: number
+  failed: number
+  total: number
+}
+
+/** Raw row shape returned from ROUTE_TRAIL, ordered by SEQUENCE_NUM. */
+export interface RouteTrailRow {
+  ROUTE_ID: string
+  LATITUDE: number
+  LONGITUDE: number
+  SPEED_MPH: number | null
+  SEQUENCE_NUM: number
+  ROUTE_STATUS: RouteStatus
+}
+
+export interface RouteTrailPoint {
+  latitude: number
+  longitude: number
+  speedMph: number | null
+  sequenceNum: number
 }
 
 export interface SubmissionPin {

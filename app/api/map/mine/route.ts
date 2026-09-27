@@ -15,7 +15,7 @@ export async function GET() {
     const [hexRows, pinRows] = await Promise.all([
       query<ExplorationHexRow>(
         `SELECT HEX_ID, ST_ASGEOJSON(HEX_BOUNDARY) AS HEX_GEOJSON,
-                CELL_DANGER_LEVEL, SUBMISSIONS_IN_CELL, HAZARDS_IN_CELL,
+                CELL_DANGER_LEVEL, TOTAL_OBSERVATIONS, HAZARDS_IN_CELL,
                 MAX_SEVERITY, HAZARD_TYPES_FOUND, FIRST_EXPLORED
          FROM EXPLORATION_MAP
          WHERE USER_ID = ?`,
@@ -37,7 +37,7 @@ export async function GET() {
         hexId: r.HEX_ID,
         hexGeoJson: r.HEX_GEOJSON,
         cellDangerLevel: r.CELL_DANGER_LEVEL,
-        submissionsInCell: r.SUBMISSIONS_IN_CELL,
+        totalObservations: r.TOTAL_OBSERVATIONS,
         hazardsInCell: r.HAZARDS_IN_CELL,
         maxSeverity: r.MAX_SEVERITY,
         hazardTypesFound: r.HAZARD_TYPES_FOUND,

@@ -1,4 +1,4 @@
-import type { CellDangerLevel } from '@/types'
+import type { CellDangerLevel, Waypoint } from '@/types'
 
 /** Spec §4.1 CELL_DANGER_LEVEL color mapping. */
 export const DANGER_COLORS: Record<CellDangerLevel, string> = {
@@ -25,6 +25,41 @@ export function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+/**
+ * Converts the DDDmm.mmmm (degrees + decimal minutes) format used by both NMEA 0183 sentences
+ * and Novatek's dashcam GPS box into signed decimal degrees.
+ */
+export function ddmmToDecimal(raw: number, hemisphere: string): number {
+  const minutes = raw % 100
+  const degrees = raw - minutes
+  const decimal = degrees / 100 + minutes / 60
+  return hemisphere === 'S' || hemisphere === 'W' ? -decimal : decimal
+}
+
+const EARTH_RADIUS_METERS = 6_371_000
+
+/** Great-circle distance between two lat/lng points, in meters. */
+export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a))
+}
+
+/** Sums haversine distance across consecutive waypoints (already in SEQUENCE_NUM order). */
+export function totalRouteDistanceMeters(waypoints: Waypoint[]): number {
+  let total = 0
+  for (let i = 1; i < waypoints.length; i++) {
+    const a = waypoints[i - 1]
+    const b = waypoints[i]
+    total += haversineMeters(a.latitude, a.longitude, b.latitude, b.longitude)
+  }
+  return total
 }
 
 /** Green (low) -> red (high) gradient for HAZARD_HEATMAP's AVG_SEVERITY (1-5 scale). */

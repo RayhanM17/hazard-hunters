@@ -84,11 +84,35 @@
 - ✅ `components/LeaderboardTabs.tsx` (new) — Points vs Explorer tab toggle on `/leaderboard`, both sorts read from the one already-fetched `LEADERBOARD_VIEW` query (no extra request); `LeaderboardRow.tsx` got a `mode` prop to switch its badge/stat display. `NavLinks.tsx` got a "Map" entry
 - ✅ `npx tsc --noEmit` clean after every change above
 
+### Completed (dashcam video/route upload)
+- ✅ Backend already had `ROUTES`, `ROUTE_WAYPOINTS` tables + `ROUTE_TRAIL`, `ROUTE_SUMMARY` views + `ROUTES_STREAM`/`PROCESS_ROUTES_TASK` automation deployed independently (confirmed via live `INFORMATION_SCHEMA` introspection) — this round was frontend-only, matching the pasted `DashRoute — Frontend Integration Spec` handoff
+- ✅ `lib/gps-parse.ts` (new) — SRT/GPX **sidecar file** parsing (spec §3a), `findNearestWaypoint()`
+- ✅ `lib/novatek-gps.ts` (new) — real in-browser parser for the proprietary GPS box Novatek-chipset dashcams (Viofo, 70mai, TerunSoul, most budget cams) embed in the MP4 container — ported byte-for-byte from the reference Python implementation (sergei.nz), ISO-BMFF box walking via `Blob.slice()` (never loads full video into memory), verified against a synthetic fixture built to the exact documented layout
+- ✅ `lib/blackvue-nmea.ts` (new) — separate parser for BlackVue-style cameras, which embed raw NMEA 0183 text (`$GPRMC`) instead of a binary box; chunked file scan with checksum validation, verified against a synthetic fixture including a sentence deliberately split across a chunk boundary
+- ✅ `lib/embedded-gps.ts` (new) — tries Novatek then BlackVue-NMEA automatically; `VideoUploadDropzone` tries embedded extraction first, sidecar file second, no-location last
+- ✅ `lib/keyframes.ts` (new) — client-side `<video>`+`<canvas>` keyframe extraction (spec §3b, 5s interval)
+- ✅ `lib/snowflake.ts` — added `queryBatch()` (native `Bind[][]` bulk insert) for waypoint/keyframe batch inserts; **fixed a real connection race**: `getConnection()` assigned the module-level `connection` before `connect()`'s callback resolved, so a concurrent second caller could query a not-yet-connected connection ("Unable to perform operation because a connection was never established") — now memoizes the in-flight connect promise
+- ✅ New API routes: `POST /api/routes` (creates route + batch-inserts waypoints + PUTs keyframes to stage + batch-inserts keyframe `SUBMISSIONS`, relies on existing task automation instead of a synchronous `CALL`), `GET /api/routes/:id` (`ROUTE_SUMMARY`), `GET /api/routes/:id/progress`, `GET /api/routes/:id/trail`
+- ✅ `components/VideoUploadDropzone.tsx` + `RouteSummaryCard.tsx` (new) — parse/scan → extract → upload → poll → show results; `DashboardClient` got a Photo/Video tab toggle
+- ✅ Polling is now **resumable** — `pollingRouteId` persisted to `localStorage`, resumed via `useEffect` on mount; fixes a real bug (user-reported) where navigating to `/map` mid-poll unmounted the component, so completion never rendered until a manual refresh happened to land after the backend finished
+- ✅ Fixed unrelated pre-existing bug hit during live testing: `app/api/map/mine/route.ts` + `types/index.ts` + `ExplorationMap.tsx` referenced `EXPLORATION_MAP.SUBMISSIONS_IN_CELL`, which no longer exists on the live view (renamed to `TOTAL_OBSERVATIONS` in a backend upgrade the frontend never caught up to) — `/map` was 500ing on every load
+- ✅ Live-tested end-to-end against a real TerunSoul (Novatek NT96675) dashcam clip — keyframe upload, staging, and AI classification all confirmed working via `PROCESS_SUBMISSIONS_TASK`
+- ✅ Diagnosed two live backend bugs surfaced by that test (both in Snowflake objects, not app code — user applied the fixes directly):
+  - `PROCESS_ROUTES_TASK`'s cursor loop called `CALL PROCESS_ROUTE_WAYPOINTS(rec.ROUTE_ID)` — Snowflake Scripting needs a scripting variable, not a bare cursor-row field reference, in a `CALL`'s arguments. Fixed by assigning to a local `LET rid VARCHAR := rec.ROUTE_ID` first.
+  - `PROCESS_ROUTE_WAYPOINTS`'s completion step set `STATUS = 'PROCESSED'` inside an `UPDATE ... FROM (SELECT ... FROM ROUTE_WAYPOINTS ... GROUP BY ROUTE_ID)` — a route with **zero** waypoints (no GPS found) makes that subquery return no rows, so the join matches nothing and the route is stuck in `PENDING` forever, no matter how many times the procedure runs. Fix: split into an unconditional "mark processed" `UPDATE` and a separate best-effort "waypoint-derived stats" `UPDATE` that only takes effect when rows exist.
+- ✅ `npx tsc --noEmit` clean after every change above
+
 ### Pending
+- ⏳ **Not yet confirmed**: whether the `PROCESS_ROUTE_WAYPOINTS` fix above was actually applied/verified successful — user was given the full corrected procedure DDL + re-`CALL`s for the 4 routes stranded by the bug, ran it themselves; re-check `SELECT STATUS FROM ROUTES` on those 4 route IDs (`78c94f17-...`, `65c77e3e-...`, `3c146516-...`, `61905a0a-...`) next session if not already confirmed
+- ⏳ Real TerunSoul dashcam clip returned **0 waypoints** from both the Novatek and BlackVue parsers — root cause not yet diagnosed. Candidates: no GPS fix in that specific clip (indoors/no satellite lock), this firmware uses the obfuscated-coordinate variant some Chinese ODM boards use (`(raw - 187.98217) / 3` style, per the reference script's `-d` flag), or a genuine gap in `lib/novatek-gps.ts`'s box-walking against this specific firmware's layout. Next step: add a debug path that dumps the raw `moov`/`gps ` atom bytes so a real failing file can be inspected directly.
+- ⏳ `/map`'s route-trail polyline (via `GET /api/routes/:id/trail`, already built) isn't wired into `ExplorationMap.tsx` yet — the API exists, no UI consumes it
+- ⏳ `lib/blackvue-nmea.ts` only verified against a synthetic fixture — no real BlackVue clip tested yet
+- ⏳ Mobile layout (~375px) not checked for `VideoUploadDropzone`/`RouteSummaryCard`
+- ⏳ `npm run build` not cleanly re-verified after the video/route work — it was run successfully once, but later attempts collided with a concurrently-running `next dev` (both write to `.next`); re-run with `dev` stopped to confirm
 - ⏳ Live-verify `tierChanged: true` actually fires on a real tier crossing, **and** watch the new `TierUpCelebration` overlay/confetti play for real — not yet exercised in a browser against a live tier boundary (`claude_test_user` 300 pts, `RayhanTester` 200 pts, both still Scout, need 500)
 - ⏳ Mobile layout (~375px width) not visually checked in a real browser for `/history`, `/map`, or `ExplorerProfileCard`
 - ⏳ Duplicate upload prevention (`FILE_HASH` dedupe, `409` response) from `PLAN.md` §6 — still not implemented; current `SUBMISSIONS` table has no `FILE_HASH` column
-- ⏳ `snowflake/02_tables.sql`, `04_views.sql`, `06_procedures.sql` are now stale against **two** deployed upgrades (v2 AI classification, then fog-of-war) — left out of scope both times by explicit user choice (most recently: frontend-only for fog-of-war), not forgotten
+- ⏳ `snowflake/02_tables.sql`, `04_views.sql`, `06_procedures.sql` are now stale against **three** deployed upgrades (v2 AI classification, fog-of-war, and now the routes/waypoints schema + `PROCESS_ROUTE_WAYPOINTS`/`PROCESS_ROUTES_TASK`) — left out of scope each time by explicit user choice (frontend-only), not forgotten
 - ⏳ Leaderboard doesn't show per-user submission count / avg severity — deliberately deferred (see `docs/FRONTEND_MODERNIZATION_V2.md` scope decisions)
 - ⏳ `npm run build` not re-run since the fog-of-war changes (only `tsc --noEmit` + manual `/map` check in-browser)
 - ⏳ "+75 New Territory Discovered!" toast not yet live-verified firing on a real new-cell submission
@@ -101,7 +125,10 @@
 - None
 
 ### Next Steps
-1. Live-verify the exploration bonus toast, Zone Battles data, and tier-up detection/`TierUpCelebration` (see Pending above)
-2. Spot-check the redesigned UI (including `/map` and `/history`) at mobile width (~375px) in a real browser
-3. Run `npm run build` to confirm a clean production build with the new `leaflet`/`react-leaflet` dependency
-4. If/when SQL sync is prioritized: `snowflake/02_tables.sql` / `04_views.sql` / `06_procedures.sql` need reconstructing against both the v2 AI upgrade and fog-of-war upgrade, not just the latter
+1. Confirm the `PROCESS_ROUTE_WAYPOINTS` fix actually landed and the 4 stranded routes flipped to `PROCESSED` (see Pending)
+2. Dig into why the real TerunSoul clip returned 0 GPS waypoints — add a raw-atom-dump debug path and inspect an actual failing file
+3. Wire `GET /api/routes/:id/trail` into `ExplorationMap.tsx` as a route polyline layer
+4. Live-verify the exploration bonus toast, Zone Battles data, and tier-up detection/`TierUpCelebration` (see Pending above)
+5. Spot-check the redesigned UI (including `/map`, `/history`, and the new video upload flow) at mobile width (~375px) in a real browser
+6. Run `npm run build` (with `next dev` stopped) to confirm a clean production build
+7. If/when SQL sync is prioritized: `snowflake/02_tables.sql` / `04_views.sql` / `06_procedures.sql` need reconstructing against all three deployed upgrades, not just fog-of-war
